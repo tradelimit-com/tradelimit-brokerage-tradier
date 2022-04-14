@@ -1,9 +1,26 @@
+/*
+ * Copyright 2022 tradelimit.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.tradelimit.brokerage.tradier
 
 import com.tradelimit.brokerage.tradier.trading.EquityOrder
 import com.tradelimit.brokerage.tradier.trading.OptionOrder
 
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -117,21 +134,125 @@ class Trading(private val tradier: TradierClient) {
             @SerialName("partner_id") val partnerId: String)
     }
 
+    /**
+     * Place an order to trade an equity security.
+     *
+     * <pre>
+     *  Parameters
+     *      Parameter	Type	Param Type	Required	Values/Example	Default
+     *      account_id	Path	String	Required	VA000000
+     *      Account number
+     *      class	Form	String	Required	equity
+     *      The kind of order to be placed.
+     *      symbol	Form	String	Required	SPY
+     *      Security symbol to be traded.
+     *      side	Form	String	Required	buy
+     *      The side of the order. One of: buy, buy_to_cover, sell, sell_short
+     *      quantity	Form	String	Required	10
+     *      The number of shares ordered.
+     *      type	Form	String	Required	market
+     *      The type of order to be placed. One of: market, limit, stop, stop_limit
+     *      duration	Form	String	Required	day
+     *      Time the order will remain active. One of: day, gtc, pre, post
+     *      price	Form	String	Optional	1.00
+     *      Limit price. Required only for limit and stop_limit orders.
+     *      stop	Form	String	Optional	1.00
+     *      Stop price. Required only for stop and stop_limit orders.
+     *      tag	Form	String	Optional	my-tag-example-1
+     *      Order tag.
+     *      Maximum length of 255 characters.
+     *      Valid characters are letters, numbers and -
+     *  </pre>
+     */
     suspend fun equityOrder(equityOrder: EquityOrder): OrderResponse {
         log.debug("Making equity order with account id ${equityOrder.accountId} and symbol ${equityOrder.symbol}")
-        return tradier.client.post("${tradier.apiUrl}/accounts/{account_id}/orders") {
-            contentType(ContentType.parse("application/x-www-form-urlencoded'"))
-            body = equityOrder
+        return tradier.client.post("${tradier.apiUrl}/accounts/${equityOrder.accountId}/orders") {
+            formData {
+                parameter("class", equityOrder.cls)
+                parameter("symbol", equityOrder.symbol)
+                parameter("side", equityOrder.side)
+                parameter("quanity", equityOrder.quantity)
+                parameter("type", equityOrder.type)
+                parameter("duration", equityOrder.duration)
+                parameter("stop", equityOrder.stop)
+                parameter("tag", equityOrder.tag)
+            }
         }
     }
 
 
+    /**
+     * Place an order to trade a single option.
+     */
     suspend fun optionOrder(optionOrder: OptionOrder): OrderResponse {
         log.debug("Making equity order with account id ${optionOrder.accountId} and symbol ${optionOrder.symbol}")
-        return tradier.client.post("${tradier.apiUrl}/accounts/{account_id}/orders") {
-            contentType(ContentType.parse("application/json"))
-//            contentType(ContentType.parse("application/x-www-form-urlencoded'"))
-            body = optionOrder
+        return tradier.client.post("${tradier.apiUrl}/accounts/${optionOrder.accountId}/orders") {
+            formData {
+                parameter("class", optionOrder.cls)
+                parameter("symbol", optionOrder.symbol)
+                parameter("option_symbol", optionOrder.optionSymbol)
+                parameter("side", optionOrder.side)
+                parameter("quanity", optionOrder.quantity)
+                parameter("type", optionOrder.type)
+                parameter("duration", optionOrder.duration)
+                parameter("stop", optionOrder.stop)
+                parameter("tag", optionOrder.tag)
+            }
         }
     }
+    /**
+     * Place a multileg order with up to 4 legs. This order type allows for simple and complex option strategies.
+     */
+    suspend fun multiLegOrder(optionOrder: OptionOrder): OrderResponse {
+        throw NotImplementedError("Missing implementation")
+    }
+
+    /**
+     * Place a combo order. This is a specialized type of order consisting of one equity leg and one option leg. It can
+     * optionally include a second option leg, for some strategies.
+     */
+    suspend fun comboOrder(optionOrder: OptionOrder): OrderResponse {
+        throw NotImplementedError("Missing implementation")
+    }
+
+    /**
+     * Place a one-triggers-other order. This order type is composed of two separate orders sent simultaneously.
+     * The property keys of each order are indexed.
+     */
+    suspend fun otoOrder(optionOrder: OptionOrder): OrderResponse {
+        throw NotImplementedError("Missing implementation")
+    }
+
+    /**
+     * Place a one-cancels-other order. This order type is composed of two separate orders sent simultaneously.
+     * The property keys of each order are indexed.
+     * <pre>
+     *  Please note these specific validations:
+     *      type must be different for both legs.
+     *      If both orders are equities, the symbol must be the same.
+     *      If both orders are options, the option_symbol must be the same.
+     *      If sending duration per leg, both orders must have the same duration.
+     * </pre>
+     */
+    suspend fun ocoOrder(optionOrder: OptionOrder): OrderResponse {
+        throw NotImplementedError("Missing implementation")
+    }
+
+
+    /**
+     * Place a one-triggers-one-cancels-other order. This order type is composed of three separate orders sent
+     * simultaneously. The property keys of each order are indexed.
+     * <pre>
+     *  Please note these specific validations:
+     *      If all equity orders, second and third orders must have the same symbol.
+     *      If all option orders, second and third orders must have the same option_symbol.
+     *      Second and third orders must always have a different type.
+     *      If sending duration per leg, second and third orders must have the same duration.
+     * </pre>
+     * POST: /v1/accounts/{account_id}/orders
+     */
+    suspend fun otcoOrder(optionOrder: OptionOrder): OrderResponse {
+        throw NotImplementedError("Missing implementation")
+    }
+
 }
