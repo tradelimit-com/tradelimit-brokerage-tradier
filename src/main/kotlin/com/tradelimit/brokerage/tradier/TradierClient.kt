@@ -16,50 +16,62 @@
 
 package com.tradelimit.brokerage.tradier
 
+import com.tradelimit.brokerage.tradier.account.AccountAPI
+import com.tradelimit.brokerage.tradier.market.MarketAPI
+import com.tradelimit.brokerage.tradier.trading.TradingAPI
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.features.*
-import io.ktor.client.features.json.*
-import io.ktor.client.features.json.serializer.*
-import io.ktor.client.features.logging.*
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 
-class TradierClient(val apiUrl: String, val authToken: String) {
-
-    internal val client = HttpClient(CIO) {
-        defaultRequest {
-            header(HttpHeaders.Accept, "application/json")
-            header(HttpHeaders.Authorization, "Bearer $authToken")
-            header(HttpHeaders.UserAgent, "tradelimit client")
-        }
-        install(Logging) {
-            logger = Logger.DEFAULT
-            level = LogLevel.HEADERS
-        }
-        install(JsonFeature) {
-            serializer = KotlinxSerializer()
-        }
-    }
+/**
+ * This class will
+ */
+class TradierClient(private val apiUrl: String, private val authToken: String, private val httpClient: HttpClient = initDefaultClient(authToken)) {
 
     /**
      * Fetch positions, balances and other account related details.
      */
-    val account: Account by lazy {
-        Account(this)
+    val account: AccountAPI by lazy {
+        AccountAPI(apiUrl, httpClient)
     }
 
     /**
      * Fetch quotes, chains and historical data via REST and streaming APIs.
      */
     val market by lazy {
-        Market(this)
+        MarketAPI(apiUrl, httpClient)
     }
 
     /**
      * Fetch quotes, chains and historical data via REST and streaming APIs.
      */
     val trading by lazy {
-        Trading(this)
+        TradingAPI(apiUrl, httpClient)
+    }
+
+    private companion object {
+        /**
+         * This will initialize the default http configuration based on the environment provided.
+         */
+        fun initDefaultClient(authToken: String) = HttpClient(CIO) {
+            defaultRequest {
+                header(HttpHeaders.Accept, "application/json")
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+                header(HttpHeaders.UserAgent, "tradelimit client")
+            }
+            install(Logging) {
+                logger = Logger.DEFAULT
+                level = LogLevel.HEADERS
+            }
+
+            install(ContentNegotiation) {
+                json()
+            }
+        }
     }
 }

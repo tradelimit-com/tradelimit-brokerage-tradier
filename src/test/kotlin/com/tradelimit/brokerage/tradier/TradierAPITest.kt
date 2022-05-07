@@ -16,20 +16,60 @@
 
 package com.tradelimit.brokerage.tradier
 
+import com.tradelimit.brokerage.tradier.trading.TradingAPI
+import io.ktor.client.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+
+
+const val TEST_URI = "http://localhost/v1"
+const val TEST_TOKEN = "test_token"
+
 
 @ExperimentalCoroutinesApi
 abstract class TradierAPITest {
 
     private val mainThreadSurrogate = newSingleThreadContext("Testing")
 
-    internal val API_KEY = checkNotNull("TRADIER_TEST_ACCOUNT_ID") { "Missing api key, check environment for 'TRADIER_TEST_ACCOUNT_ID' "}
+    protected val mockEngine = MockEngine { request ->
+        val response = Json.encodeToString(
+            TradingAPI.OrderResponse(
+                TradingAPI.OrderResponse.Order(
+                    id = -1,
+                    status = "OK",
+                    partnerId = "123"
+                )
+            )
+        )
+
+        respond(
+            content = ByteReadChannel(response),
+            status = HttpStatusCode.OK,
+            headers = headersOf(HttpHeaders.ContentType, "application/json")
+        )
+    }
+
+    private val httpClient = HttpClient(engine = mockEngine) {
+
+        install(ContentNegotiation) {
+            json()
+        }
+    }
+
+    protected val tradier = TradierClient(TEST_URI, TEST_TOKEN, httpClient)
+
 
     @BeforeEach
     fun setUp() {

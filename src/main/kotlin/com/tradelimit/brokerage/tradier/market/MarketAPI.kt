@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package com.tradelimit.brokerage.tradier
+package com.tradelimit.brokerage.tradier.market
 
-import com.tradelimit.brokerage.tradier.market.*
+import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.request.*
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 
 
-class Market(private val tradier: TradierClient) {
+class MarketAPI(var apiUrl: String, private val httpClient: HttpClient) {
 
     /**
      * Tradier wraps their response in two separate objects so this actually represents a
@@ -34,9 +35,9 @@ class Market(private val tradier: TradierClient) {
         data class Quotes(val quote: List<Quote>)
     }
 
-    suspend fun quotes(symbols: List<String>): QuotesResponse.Quotes {
+    suspend fun quotes(symbols: List<String>): QuotesResponse {
         val symbols = symbols.joinToString(",")
-        return tradier.client.get<QuotesResponse>("${tradier.apiUrl}/markets/quotes?symbols=${symbols}&greeks=false").quotes
+        return httpClient.get("${apiUrl}/markets/quotes?symbols=${symbols}&greeks=false").body()
     }
 
     /**
@@ -47,7 +48,7 @@ class Market(private val tradier: TradierClient) {
      *
      */
     suspend fun optionChain(symbol: String, expiration: LocalDate, greeks: Boolean = false): OptionChains {
-        return tradier.client.get("${tradier.apiUrl}/markets/options/chains?symbol=${symbol}&expiration=$expiration&greeks=$greeks")
+        return httpClient.get("${apiUrl}/markets/options/chains?symbol=${symbol}&expiration=$expiration&greeks=$greeks").body()
     }
 
     /**
@@ -56,7 +57,7 @@ class Market(private val tradier: TradierClient) {
      * /v1/markets/options/strikes
      */
     suspend fun optionStrikes(symbol: String, expiration: LocalDate): OptionStrikes {
-        return tradier.client.get("${tradier.apiUrl}/markets/options/strikes?symbol=${symbol}&&expiration=${expiration}")
+        return httpClient.get("${apiUrl}/markets/options/strikes?symbol=${symbol}&&expiration=${expiration}").body()
     }
 
 
@@ -68,8 +69,12 @@ class Market(private val tradier: TradierClient) {
      *
      * /v1/markets/options/expirations
      */
-    suspend fun optionExpiration(symbol: String, includeAllRoots: Boolean = false, strikes: Boolean = false): OptionExpiration {
-        return tradier.client.get("${tradier.apiUrl}/markets/options/expirations?symbol=${symbol}&includeAllRoots=${includeAllRoots}&strikes=${strikes}")
+    suspend fun optionExpiration(
+        symbol: String,
+        includeAllRoots: Boolean = false,
+        strikes: Boolean = false
+    ): OptionExpiration {
+        return httpClient.get("${apiUrl}/markets/options/expirations?symbol=${symbol}&includeAllRoots=${includeAllRoots}&strikes=${strikes}").body()
     }
 
 
@@ -79,7 +84,7 @@ class Market(private val tradier: TradierClient) {
      * /v1/markets/options/lookup
      */
     suspend fun optionSymbol(symbol: String): OptionExpiration {
-        return tradier.client.get("${tradier.apiUrl}/markets/options/lookup?underlying=${symbol}")
+        return httpClient.get("${apiUrl}/markets/options/lookup?underlying=${symbol}").body()
     }
 
     /**
@@ -87,7 +92,7 @@ class Market(private val tradier: TradierClient) {
      * You can fetch historical pricing for options by passing the OCC option symbol (ex. AAPL220617C00270000) as the symbol.
      */
     suspend fun historicalPricing(symbol: String, interval: Interval, start: LocalDate, end: LocalDate): Historical {
-        return tradier.client.get("${tradier.apiUrl}/markets/history?symbol=${symbol}&interval=${interval.name}&start=${start}&end=${end}")
+        return httpClient.get("${apiUrl}/markets/history?symbol=${symbol}&interval=${interval.name}&start=${start}&end=${end}").body()
     }
 
 
@@ -104,8 +109,14 @@ class Market(private val tradier: TradierClient) {
      *  15min	    40 days	                18 days
      * </pre>
      */
-    suspend fun timeAndSales(symbol: String, interval: Interval, start: LocalDate, end: LocalDate, sessionFilter: String = "all"): OptionExpiration {
-        return tradier.client.get("${tradier.apiUrl}/markets/timesales?symbol=${symbol}&interval=${interval.name}&start=${start}&end=${end}&session_filter=$sessionFilter")
+    suspend fun timeAndSales(
+        symbol: String,
+        interval: Interval,
+        start: LocalDate,
+        end: LocalDate,
+        sessionFilter: String = "all"
+    ): OptionExpiration {
+        return httpClient.get("${apiUrl}/markets/timesales?symbol=${symbol}&interval=${interval.name}&start=${start}&end=${end}&session_filter=$sessionFilter").body()
     }
 
 
@@ -116,7 +127,7 @@ class Market(private val tradier: TradierClient) {
      * /v1/markets/etb
      */
     suspend fun availableShorts(): Securities {
-        return tradier.client.get("${tradier.apiUrl}/markets/etb")
+        return httpClient.get("${apiUrl}/markets/etb").body()
     }
 
     /**
@@ -126,7 +137,7 @@ class Market(private val tradier: TradierClient) {
      * /v1/markets/clock
      */
     suspend fun intradayStatus(): IntradayStatus {
-        return tradier.client.get("${tradier.apiUrl}/markets/clock?delayed=true")
+        return httpClient.get("${apiUrl}/markets/clock?delayed=true").body()
     }
 
     /**
@@ -136,7 +147,7 @@ class Market(private val tradier: TradierClient) {
      * /v1/markets/calendar
      */
     suspend fun calendar(month: String, year: String): IntradayStatus {
-        return tradier.client.get("${tradier.apiUrl}/markets/calendar?month=${month}&year=${year}\"")
+        return httpClient.get("${apiUrl}/markets/calendar?month=${month}&year=${year}\"").body()
     }
 
 

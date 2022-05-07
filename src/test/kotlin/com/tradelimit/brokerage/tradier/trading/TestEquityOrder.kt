@@ -16,39 +16,51 @@
 
 package com.tradelimit.brokerage.tradier.trading
 
-import OrderDuration
-import OrderSide
+import com.tradelimit.brokerage.tradier.TEST_TOKEN
+import com.tradelimit.brokerage.tradier.TEST_URI
 import com.tradelimit.brokerage.tradier.TradierAPITest
-import com.tradelimit.brokerage.tradier.TestClientFactory
 import com.tradelimit.brokerage.tradier.trading.EquityOrder.Companion.equityOrder
+import io.ktor.client.request.forms.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
-@ExperimentalCoroutinesApi
-internal class TestTradingEquity : TradierAPITest() {
 
-    private val tradier = TestClientFactory.testClient()
+@ExperimentalCoroutinesApi
+internal class TestEquityOrder : TradierAPITest() {
 
     @Test
     fun `test open equity position`() = runTest {
         launch(Dispatchers.Main) {
             val order = equityOrder {
-                accountId = API_KEY
+                accountId = TEST_TOKEN
                 symbol = "AMD"
                 price = 1.0
                 type = OrderType.LIMIT
-                side = OrderSide.BUY
+                side = EquityOrder.Side.BUY
                 quantity = 1
                 duration = OrderDuration.DAY
             }
 
-            val trade = tradier.trading.equityOrder(order)
+            val trade = tradier.trading.equityOrder(accountId = TEST_TOKEN, order)
+            val request = mockEngine.requestHistory.first()
+
+            val formDataContent = request.body as FormDataContent
+            assert(formDataContent.formData["symbol"] ==  "AMD")
+            assert(formDataContent.formData["price"] ==  "1.0")
+            assert(formDataContent.formData["type"] ==  "${OrderType.LIMIT}")
+
+            assert(formDataContent.formData["side"] == "${EquityOrder.Side.BUY}")
+
+            assert(formDataContent.formData["quantity"] ==  "1")
+            assert(formDataContent.formData["duration"] == "${OrderDuration.DAY}")
+
+
+            println(mockEngine.requestHistory.first())
+            assert(request.url.toString() == "$TEST_URI/accounts/$TEST_TOKEN/orders")
             assert(trade.order.status == "OK")
         }
     }
-
-
 }

@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package com.tradelimit.brokerage.tradier
+package com.tradelimit.brokerage.tradier.account
 
-import com.tradelimit.brokerage.tradier.account.*
+
+import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.http.*
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -27,7 +28,7 @@ import org.slf4j.LoggerFactory
 /**
  * Fetch positions, balances and other account related details.
  */
-class Account(private val tradier: TradierClient) {
+class AccountAPI(val apiUrl: String, private val httpClient: HttpClient) {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -39,7 +40,7 @@ class Account(private val tradier: TradierClient) {
 
     suspend fun userProfile(): Profile {
         log.debug("Making request for user profile")
-        return tradier.client.get<ProfileResponse>("${tradier.apiUrl}/user/profile").profile
+        return httpClient.get("${apiUrl}/user/profile").body()
     }
 
     /**
@@ -53,7 +54,7 @@ class Account(private val tradier: TradierClient) {
      */
     suspend fun balances(accountId: String): Balances {
         log.debug("Making request for balances to account $accountId")
-        return tradier.client.get<BalanceResponse>("${tradier.apiUrl}/accounts/${accountId}/balances").balances
+        return httpClient.get("${apiUrl}/accounts/${accountId}/balances").body()
     }
 
     /**
@@ -65,9 +66,9 @@ class Account(private val tradier: TradierClient) {
     /**
      * Get the current positions being held in an account. These positions are updated intraday via trading.
      */
-    suspend fun positions(accountId: String): Positions {
+    suspend fun positions(accountId: String): PositionsResponse {
         log.debug("Making request for positions to account $accountId")
-        return tradier.client.get<PositionsResponse>("${tradier.apiUrl}/accounts/{account_id}/positions").positions
+        return httpClient.get("${apiUrl}/accounts/{account_id}/positions").body()
     }
 
     @Serializable
@@ -88,27 +89,23 @@ class Account(private val tradier: TradierClient) {
         start: LocalDate? = null,
         end: LocalDate? = null,
         symbol: String? = null
-    ): History {
+    ): AccountHistoryResponse {
         log.debug("Making request for accountHistory to account $accountId")
-        val uriBuilder = URLBuilder("${tradier.apiUrl}").path("v1", "accounts", "$accountId", "history")
-        val parameters = uriBuilder.parameters
-        parameters.append("page", "$page")
-        parameters.append("limit", "$limit")
 
-        if (types.isNotEmpty()) {
-            val typeNames = types.map { it.type }
-            parameters.append("type", "$typeNames")
-        }
-        start?.let { parameters.append("start", "$it") }
-        end?.let { parameters.append("end", "$it") }
-        symbol?.let { parameters.append("symbol", "$it") }
+        return httpClient.get("$apiUrl/accounts/$accountId/history") {
+            parameter("page", "$page")
+            parameter("limit", "$limit")
+            symbol?.let { parameter("symbol", "$it") }
+            start?.let { parameter("start", "$it") }
+            end?.let { parameter("end", "$it") }
 
-        log.debug("Making request for accountHistory to account ${uriBuilder.buildString()}")
-        return tradier.client.get<AccountHistoryResponse>(uriBuilder.buildString()).history
+            types.forEach { parameter("type", it.type) }
+        }.body()
     }
 
     @Serializable
     data class GainLossResponse(@SerialName("gainloss") val gainLoss: GainLoss)
+
     /**
      * Get cost basis information for a specific user account. This includes information for all closed positions.
      * Cost basis information is updated through a nightly batch reconciliation process with our clearing firm.
@@ -122,37 +119,38 @@ class Account(private val tradier: TradierClient) {
         start: LocalDate? = null,
         end: LocalDate? = null,
         symbol: String? = null
-    ): GainLoss {
+    ): GainLossResponse {
         log.debug("Making request for gainLoss to account $accountId")
-        val uriBuilder = URLBuilder("${tradier.apiUrl}")
-            .path("v1", "accounts", "$accountId", "gainloss")
-        val parameters = uriBuilder.parameters
-        parameters.append("page", "$page")
-        parameters.append("limit", "$limit")
 
-        sortBy?.let { parameters.append("sortBy", "$it") }
-        sort?.let {parameters.append("sort", "$it")}
+        return httpClient.get("$apiUrl/accounts/$accountId/gainloss") {
+            parameter("page", "$page")
+            parameter("limit", "$limit")
+            sortBy?.let { parameter("sortBy", "$it") }
+            sort?.let { parameter("sort", "$it") }
 
-        start?.let { parameters.append("start", "$it") }
-        end?.let { parameters.append("end", "$it") }
-        symbol?.let { parameters.append("symbol", "$it") }
-
-        return tradier.client.get<GainLossResponse>(uriBuilder.buildString()).gainLoss
+            start?.let { parameter("start", "$it") }
+            end?.let { parameter("end", "$it") }
+            symbol?.let { parameter("symbol", "$it") }
+        }.body()
     }
 
-    @Serializable data class OrdersResponse(val orders: Orders)
+    @Serializable
+    data class OrdersResponse(val orders: Orders)
+
     /**
      * Retrieve orders placed within an account. This API will return orders placed for the market session of the present calendar day.
      */
-    suspend fun orders(accountId: String, includeTags: Boolean = false): Orders {
-        return tradier.client.get<OrdersResponse>("${tradier.apiUrl}/accounts/${accountId}/orders?includeTags=${includeTags}").orders
+    suspend fun orders(accountId: String, includeTags: Boolean = false): OrdersResponse {
+        return httpClient.get("${apiUrl}/accounts/${accountId}/orders?includeTags=${includeTags}").body()
     }
 
-    @Serializable data class OrderResponse(val order: Orders.Order)
+    @Serializable
+    data class OrderResponse(val order: Orders.Order)
+
     /**
      * Get detailed information about a previously placed order.
      */
-    suspend fun orders(accountId: String, orderId: Int, includeTags: Boolean = false): Orders.Order {
-        return tradier.client.get<OrderResponse>("${tradier.apiUrl}/accounts/${accountId}/orders/${orderId}?includeTags=${includeTags}").order
+    suspend fun orders(accountId: String, orderId: Int, includeTags: Boolean = false): OrderResponse {
+        return httpClient.get("${apiUrl}/accounts/${accountId}/orders/${orderId}?includeTags=${includeTags}").body()
     }
 }

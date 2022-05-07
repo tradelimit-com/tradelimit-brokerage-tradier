@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package com.tradelimit.brokerage.tradier
+package com.tradelimit.brokerage.tradier.trading
 
-import com.tradelimit.brokerage.tradier.trading.EquityOrder
-import com.tradelimit.brokerage.tradier.trading.OptionOrder
 
-import io.ktor.client.request.*
+import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import kotlinx.serialization.SerialName
@@ -120,7 +119,8 @@ import org.slf4j.LoggerFactory
  *     </div>
  *  </pre>
  */
-class Trading(private val tradier: TradierClient) {
+class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
+
     private val log = LoggerFactory.getLogger(javaClass)
 
     /**
@@ -128,10 +128,13 @@ class Trading(private val tradier: TradierClient) {
      */
     @Serializable
     data class OrderResponse(val order: Order) {
-        @Serializable data class Order(
+
+        @Serializable
+        data class Order(
             @SerialName("id") val id: Long,
             @SerialName("status") val status: String,
-            @SerialName("partner_id") val partnerId: String)
+            @SerialName("partner_id") val partnerId: String
+        )
     }
 
     /**
@@ -164,63 +167,91 @@ class Trading(private val tradier: TradierClient) {
      *      Valid characters are letters, numbers and -
      *  </pre>
      */
-    suspend fun equityOrder(equityOrder: EquityOrder): OrderResponse {
-        log.debug("Making equity order with account id ${equityOrder.accountId} and symbol ${equityOrder.symbol}")
-        return tradier.client.post("${tradier.apiUrl}/accounts/${equityOrder.accountId}/orders") {
-            formData {
-                parameter("class", equityOrder.cls)
-                parameter("symbol", equityOrder.symbol)
-                parameter("side", equityOrder.side)
-                parameter("quanity", equityOrder.quantity)
-                parameter("type", equityOrder.type)
-                parameter("duration", equityOrder.duration)
-                parameter("stop", equityOrder.stop)
-                parameter("tag", equityOrder.tag)
-            }
-        }
+    suspend fun equityOrder(accountId: String, equityOrder: EquityOrder): OrderResponse {
+        log.debug("Making equity order with account id $accountId and symbol ${equityOrder.symbol}")
+
+        return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
+            equityOrder.formParams(this)
+        }).body()
     }
 
 
     /**
      * Place an order to trade a single option.
      */
-    suspend fun optionOrder(optionOrder: OptionOrder): OrderResponse {
-        log.debug("Making equity order with account id ${optionOrder.accountId} and symbol ${optionOrder.symbol}")
-        return tradier.client.post("${tradier.apiUrl}/accounts/${optionOrder.accountId}/orders") {
-            formData {
-                parameter("class", optionOrder.cls)
-                parameter("symbol", optionOrder.symbol)
-                parameter("option_symbol", optionOrder.optionSymbol)
-                parameter("side", optionOrder.side)
-                parameter("quanity", optionOrder.quantity)
-                parameter("type", optionOrder.type)
-                parameter("duration", optionOrder.duration)
-                parameter("stop", optionOrder.stop)
-                parameter("tag", optionOrder.tag)
-            }
-        }
+    suspend fun optionOrder(accountId: String, optionOrder: OptionOrder): OrderResponse {
+        log.debug("Making equity order with account id $accountId and symbol ${optionOrder.symbol}")
+        check(optionOrder.legs.size == 1) { "Only one leg for option order, might try multiLegOrder" }
+
+        return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
+            optionOrder.formParams(this)
+        }).body()
     }
+
+
     /**
-     * Place a multileg order with up to 4 legs. This order type allows for simple and complex option strategies.
+     * Place an order to trade a single option.
      */
-    suspend fun multiLegOrder(optionOrder: OptionOrder): OrderResponse {
-        throw NotImplementedError("Missing implementation")
+    suspend fun multiLegOrder(accountId: String, optionOrder: OptionOrder): OrderResponse {
+        log.debug("Making equity order with account id $accountId and symbol ${optionOrder.symbol}")
+
+        return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
+            append("symbol", optionOrder.symbol)
+            append("type", "${optionOrder.type}")
+            append("duration", optionOrder.duration.toString())
+            append("class", "${OrderClass.MULTILEG}")
+            append("price", "${optionOrder.price}")
+            optionOrder.legs.appendOptionLegs(this)
+            optionOrder.tag?.let { append("tag", it) }
+        }).body()
     }
+
+
 
     /**
      * Place a combo order. This is a specialized type of order consisting of one equity leg and one option leg. It can
      * optionally include a second option leg, for some strategies.
      */
-    suspend fun comboOrder(optionOrder: OptionOrder): OrderResponse {
-        throw NotImplementedError("Missing implementation")
+    suspend fun comboOrder(accountId: String, order: ComboOrder): OrderResponse {
+        log.debug("Making equity order with account id $accountId and symbol ${order.symbol}")
+
+        return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
+            append("class", "${OrderClass.COMBO}")
+            append("symbol", order.symbol)
+            append("type", "${order.type}")
+            append("duration", order.duration.toString())
+            order.price?.let { append("price", "$it")  }
+            order.optionLegs.appendOptionLegs(this)
+            order.tag?.let { append("tag", it) }
+        }).body()
     }
+
 
     /**
      * Place a one-triggers-other order. This order type is composed of two separate orders sent simultaneously.
      * The property keys of each order are indexed.
      */
-    suspend fun otoOrder(optionOrder: OptionOrder): OrderResponse {
-        throw NotImplementedError("Missing implementation")
+    suspend fun otoOrder(accountId: String, order: OtoOrder): OrderResponse {
+
+        return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
+            append("class", "${OrderClass.OTO}")
+            append("duration", order.duration.toString())
+
+            listOf(order.order, order.triggers).forEachIndexed {idx, order ->
+                when(order) {
+                    is OptionOrder -> {
+                        check(order.legs.size == 1) {"In an OTO order there can be only one leg for options"}
+                        order.formParams(this, idx)
+                    }
+
+                    is EquityOrder -> {
+                        order.formParams(this, idx)
+                    }
+                    else -> throw IllegalStateException("Received unknown oto order type ${order!!::class}")
+                }
+            }
+
+        }).body()
     }
 
     /**
@@ -255,4 +286,53 @@ class Trading(private val tradier: TradierClient) {
         throw NotImplementedError("Missing implementation")
     }
 
+
+
+    /**
+     * Helper to converf
+     */
+    private fun OptionOrder.formParams(pb: ParametersBuilder, idx: Int? = null ) {
+        val leg = legs.single()
+
+        with(pb) {
+            append(tagName("symbol", idx), symbol)
+            append(tagName("type", idx), "$type")
+            append(tagName("duration", idx), duration.toString())
+            append(tagName("class", idx), OrderClass.OPTION.toString())
+            append(tagName("option_symbol", idx), leg.optionSymbol)
+            append(tagName("quantity", idx), "${leg.quantity}")
+            append(tagName("side", idx), "${leg.side}")
+            tag?.let { append("tag", it) }
+        }
+    }
+
+    private fun EquityOrder.formParams(pb: ParametersBuilder, idx: Int? = null) {
+        with(pb) {
+            append("class", cls)
+            append(tagName("symbol", idx), symbol)
+            append(tagName("side", idx), side.token)
+            append(tagName("quantity", idx), "$quantity")
+            append(tagName("type", idx), "$type")
+            append(tagName("duration", idx), "$duration")
+            price?.let { pb.append(tagName("price", idx), it.toString()) }
+            stop?.let { append(tagName("stop", idx), it) }
+            tag?.let { append(tagName("tag", idx), it) }
+        }
+    }
+
+
+    /**
+     * Helper function for formatting tag names if index is supplied or not.
+     */
+    private fun tagName(s: String, idx: Int? = null) = idx?.let {"$s[$idx]"} ?: s
+
+
+    /**
+     * This function will simply append the option legs to the form builder.
+     */
+    private fun List<OptionLeg>.appendOptionLegs(pb: ParametersBuilder) =  forEachIndexed { idx, order ->
+        pb.append("side[$idx]", "${order.side}")
+        pb.append("quantity[$idx]", "${order.quantity}")
+        pb.append("option_symbol[$idx]", order.optionSymbol)
+    }
 }
