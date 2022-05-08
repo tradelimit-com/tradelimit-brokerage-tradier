@@ -44,16 +44,16 @@ class TestAccount {
     @Test
     fun `test account returns single profile`() = runTest {
         launch(Dispatchers.Main) {
-            val profile = t.account.userProfile()
-            assert(profile.account.accountNumber == TestClientFactory.testAccountId)
+            val profileResponse = t.account.userProfile()
+            assert(profileResponse.profile.account.accountNumber == TestClientFactory.testAccountId)
         }
     }
 
     @Test
     fun `test balances`() = runTest {
         launch(Dispatchers.Main) {
-            val balance = t.account.balances(TestClientFactory.testAccountId)
-            assert(balance.accountNumber == TestClientFactory.testAccountId)
+            val response = t.account.balances(TestClientFactory.testAccountId)
+            assert(response.balances.accountNumber == TestClientFactory.testAccountId)
         }
     }
 

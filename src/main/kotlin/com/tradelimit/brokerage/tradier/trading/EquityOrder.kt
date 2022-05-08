@@ -109,7 +109,6 @@ data class EquityOrder(
     }
 
     class Builder {
-        var accountId: String? = null
         var symbol: String? = null
         var side: Side? = null
         var quantity: Int? = null

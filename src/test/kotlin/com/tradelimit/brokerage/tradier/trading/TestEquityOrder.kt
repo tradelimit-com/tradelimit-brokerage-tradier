@@ -36,7 +36,6 @@ internal class TestEquityOrder : TradierAPITest() {
         launch(Dispatchers.Main) {
 
             val trade = tradier.trading.equityOrder(accountId = TEST_TOKEN) {
-                accountId = TEST_TOKEN
                 symbol = "AMD"
                 price = 1.0
                 type = OrderType.LIMIT

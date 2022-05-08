@@ -33,7 +33,7 @@ class TestMultilegOrder : TradierAPITest() {
     @Test
     fun `test multileg market option order (IC)`() = runTest {
         launch(Dispatchers.Main) {
-            val order = OptionOrder.optionOrder {
+            val trade = tradier.trading.multiLegOrder(TEST_TOKEN) {
                 symbol = "SPY"
                 orderDuration = OrderDuration.DAY
                 type = OrderType.MARKET
@@ -63,14 +63,11 @@ class TestMultilegOrder : TradierAPITest() {
                 }
             }
 
-            tradier.trading.multiLegOrder(TEST_TOKEN, order)
-
 
             val request = mockEngine.requestHistory.first()
 
             // Validate url
             assert(request.url.toString() == "$TEST_URI/accounts/$TEST_TOKEN/orders")
-
 
             val formDataContent = request.body as FormDataContent
             assert(formDataContent.formData["class"] ==  "multileg")

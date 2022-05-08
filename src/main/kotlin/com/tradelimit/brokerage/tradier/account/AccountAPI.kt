@@ -37,7 +37,7 @@ class AccountAPI(val apiUrl: String, private val httpClient: HttpClient) {
     @Serializable
     data class ProfileResponse(val profile: Profile)
 
-    suspend fun userProfile(): Profile {
+    suspend fun userProfile(): ProfileResponse {
         log.debug("Making request for user profile")
         return httpClient.get("${apiUrl}/user/profile").body()
     }
@@ -51,7 +51,7 @@ class AccountAPI(val apiUrl: String, private val httpClient: HttpClient) {
     /**
      * This will return you the balance on
      */
-    suspend fun balances(accountId: String): Balances {
+    suspend fun balances(accountId: String): BalanceResponse {
         log.debug("Making request for balances to account $accountId")
         return httpClient.get("${apiUrl}/accounts/${accountId}/balances").body()
     }
@@ -71,7 +71,7 @@ class AccountAPI(val apiUrl: String, private val httpClient: HttpClient) {
     }
 
     @Serializable
-    data class AccountHistoryResponse(val history: History)
+    data class AccountHistoryResponse(val history: History? = null)
 
     /**
      * Get historical activity for an account. This data originates with our clearing firm and inherently has a few limitations:

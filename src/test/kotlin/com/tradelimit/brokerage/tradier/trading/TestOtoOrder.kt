@@ -33,7 +33,8 @@ class TestOtoOrder : TradierAPITest()  {
     @Test
     fun `test oto order`() = runTest {
         launch(Dispatchers.Main) {
-            val otoOrder = OtoOrder.otoOrder {
+
+            val trade = tradier.trading.otoOrder(accountId = TEST_TOKEN)  {
                 symbol = "SPY"
                 duration = OrderDuration.DAY
                 order {
@@ -60,8 +61,6 @@ class TestOtoOrder : TradierAPITest()  {
                     }
                 }
             }
-
-            tradier.trading.otoOrder(accountId = TEST_TOKEN, otoOrder)
             val request = mockEngine.requestHistory.first()
 
             val formDataContent = request.body as FormDataContent

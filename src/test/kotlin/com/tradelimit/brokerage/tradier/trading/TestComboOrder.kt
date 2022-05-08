@@ -35,7 +35,7 @@ class TestComboOrder : TradierAPITest() {
     @Test
     fun `test simple combo order`() = runTest {
         launch(Dispatchers.Main) {
-            val comboOrder = comboOrder {
+            val trade = tradier.trading.comboOrder(accountId = TEST_TOKEN) {
                 symbol = "SPY"
                 type = ComboOrder.Type.MARKET
                 duration = OrderDuration.DAY
@@ -48,7 +48,6 @@ class TestComboOrder : TradierAPITest() {
                 }
             }
 
-            tradier.trading.comboOrder(accountId = TEST_TOKEN, comboOrder)
             val request = mockEngine.requestHistory.first()
 
             val formDataContent = request.body as FormDataContent

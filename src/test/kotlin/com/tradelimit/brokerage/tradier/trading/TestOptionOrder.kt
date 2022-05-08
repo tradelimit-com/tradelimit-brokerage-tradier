@@ -25,12 +25,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
-class TestOptionsOrder : TradierAPITest() {
+class TestOptionOrder : TradierAPITest() {
 
     @Test
     fun testSingleOptionOrder() = runTest {
         launch(Dispatchers.Main) {
-            val order = OptionOrder.optionOrder {
+            val trade = tradier.trading.optionOrder(TEST_TOKEN)  {
                 symbol = "SPY"
                 type = OrderType.MARKET
                 orderDuration = OrderDuration.DAY
@@ -43,7 +43,6 @@ class TestOptionsOrder : TradierAPITest() {
                 }
             }
 
-            tradier.trading.optionOrder(TEST_TOKEN, order)
             val request = mockEngine.requestHistory.first()
 
             val formDataContent = request.body as FormDataContent

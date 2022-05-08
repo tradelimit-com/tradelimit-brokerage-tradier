@@ -29,13 +29,13 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 @ExperimentalCoroutinesApi
-class TestOcoOrder : TradierAPITest()  {
+class TestOcoOrder : TradierAPITest() {
 
     // Create an equity order and an option order
     @Test
     fun `test oco order`() = runTest {
         launch(Dispatchers.Main) {
-            val ocoOrder = ocoOrder {
+            val trade = tradier.trading.ocoOrder(accountId = TEST_TOKEN) {
                 symbol = "SPY"
                 duration = OrderDuration.GTC
                 order {
@@ -56,14 +56,12 @@ class TestOcoOrder : TradierAPITest()  {
                     equity {
                         symbol = "SPY"
                         type = OrderType.MARKET
-                        duration =  OrderDuration.GTC
+                        duration = OrderDuration.GTC
                         side = EquityOrder.Side.BUY
                         quantity = 50
                     }
                 }
             }
-
-            tradier.trading.ocoOrder(accountId = TEST_TOKEN, ocoOrder)
             val request = mockEngine.requestHistory.first()
 
             val formDataContent = request.body as FormDataContent
@@ -72,17 +70,17 @@ class TestOcoOrder : TradierAPITest()  {
             assertEquals("gtc", formDataContent.formData["duration"])
 
             // Check option order
-            assert(formDataContent.formData["option_symbol[0]"] ==  "SPY140118C00195000")
-            assert(formDataContent.formData["side[0]"] ==  "${OptionOrder.Side.BUY_TO_OPEN}")
-            assert(formDataContent.formData["quantity[0]"] ==  "1")
+            assert(formDataContent.formData["option_symbol[0]"] == "SPY140118C00195000")
+            assert(formDataContent.formData["side[0]"] == "${OptionOrder.Side.BUY_TO_OPEN}")
+            assert(formDataContent.formData["quantity[0]"] == "1")
             assertEquals("gtc", formDataContent.formData["duration[0]"])
 
             // Check triggers order
-            assert(formDataContent.formData["symbol[1]"] ==  "SPY")
-            assert(formDataContent.formData["type[1]"] ==  "${OrderType.MARKET}")
+            assert(formDataContent.formData["symbol[1]"] == "SPY")
+            assert(formDataContent.formData["type[1]"] == "${OrderType.MARKET}")
             assertEquals("gtc", formDataContent.formData["duration[1]"])
-            assertEquals("${EquityOrder.Side.BUY}", formDataContent.formData["side[1]"],  )
-            assert(formDataContent.formData["quantity[1]"] ==  "50")
+            assertEquals("${EquityOrder.Side.BUY}", formDataContent.formData["side[1]"])
+            assert(formDataContent.formData["quantity[1]"] == "50")
 
 
             println(mockEngine.requestHistory.first())

@@ -36,7 +36,7 @@ class TestOtocoOrder : TradierAPITest() {
     fun `test otoco order`() = runTest {
         launch(Dispatchers.Main) {
 
-            tradier.trading.otocoOrder(accountId = TEST_TOKEN) {
+            val trade = tradier.trading.otocoOrder(accountId = TEST_TOKEN) {
                 symbol = "SPY"
                 duration = OrderDuration.GTC
                 order {

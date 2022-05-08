@@ -43,7 +43,6 @@ class TestOptionChains {
         mainThreadSurrogate.close()
     }
 
-
     @Test
     fun testQuotes() = runTest {
         launch(Dispatchers.Main) {
