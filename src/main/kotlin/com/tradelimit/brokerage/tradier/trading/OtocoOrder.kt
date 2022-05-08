@@ -59,7 +59,7 @@ class OtocoOrder(
     /**
      * This is a one cancels the other order that is triggered when the first order fills.
      */
-    @SerialName("oco") val oco: OcoOrder,
+    @SerialName("oco") val oco: List<TradingOrder>,
 
     /**
      * Order tag.
@@ -79,58 +79,42 @@ class OtocoOrder(
     class Builder {
         var symbol: String? = null
         var duration: OrderDuration? = null
-        var oco: OcoOrder? = null
         var tag: String? = null
         var order: TradingOrder? = null
+        private var ocoOrders: List<TradingOrder> = emptyList()
 
         fun order(lambda: TradingOrderBuilder.() -> Unit) {
             order = TradingOrderBuilder().apply(lambda).build()
         }
 
-        fun oco(block: OcoOrder.Builder.() -> Unit) {
-            OcoOrder.Builder().apply(block).build().validate()
+        fun oco(lambda: TradingOrdersBuilder.() -> Unit) {
+            ocoOrders = TradingOrdersBuilder().apply(lambda).build()
         }
 
         fun build() = OtocoOrder(
             symbol = checkNotNull(symbol) { "Missing symbol parameter for OTO order" },
             duration = checkNotNull(duration) { "Missing duration parameter for OTO order" },
             order = checkNotNull(order) {"Missing primary order to the initial trigger"},
-            oco = checkNotNull(oco) {"Missing oco order for OTOCO order"},
+            oco = ocoOrders,
             tag = tag,
         )
     }
 
-    class TradingOrderBuilder {
-        var order: TradingOrder? = null
-
-        fun option(lambda: OptionOrder.Builder.() -> Unit) {
-            order = OptionOrder.Builder().apply(lambda).build()
-        }
-
-        fun equity(lambda: EquityOrder.Builder.() -> Unit) {
-            order = EquityOrder.Builder().apply(lambda).build()
-        }
-
-        fun build(): TradingOrder {
-            return checkNotNull(order)
-        }
-    }
-
     fun validate(): OtocoOrder {
         // If both orders are equities, the symbol must be the same.
-        if (order is EquityOrder && oco.orders[0] is EquityOrder && oco.orders[1] is EquityOrder) {
-            check(order.symbol in oco.orders.map { it.symbol }) { "An OTOCO order containing all equity orders must have the same symbol" }
+        if (order is EquityOrder && oco[0] is EquityOrder && oco[1] is EquityOrder) {
+            check(order.symbol in oco.map { it.symbol }) { "An OTOCO order containing all equity orders must have the same symbol" }
         }
 
         // If both orders are options, the option_symbol must be the same.
-        if (order is OptionOrder && oco.orders[0] is OptionOrder && oco.orders[1] is OptionOrder ) {
-            val l1 = (oco.orders[0] as OptionOrder).legs.first()
-            val l2 = (oco.orders[1] as OptionOrder).legs.first()
+        if (order is OptionOrder && oco[0] is OptionOrder && oco[1] is OptionOrder ) {
+            val l1 = (oco[0] as OptionOrder).legs.first()
+            val l2 = (oco[1] as OptionOrder).legs.first()
             check(l1.optionSymbol == l2.optionSymbol) { "An OCO order containing two option orders must have the same option_symbol" }
         }
 
         // If sending duration per leg, both orders must have the same duration.
-        check(oco.orders[0].duration == oco.orders[1].duration) { "An OCO order containing durations on legs must have identical durations" }
+        check(oco[0].duration == oco[1].duration) { "An OCO order containing durations on legs must have identical durations" }
         return this
     }
 }

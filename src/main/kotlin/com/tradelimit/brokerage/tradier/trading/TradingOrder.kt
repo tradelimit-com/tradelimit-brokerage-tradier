@@ -45,8 +45,39 @@ abstract class TradingOrder(
      * The kind of order to be placed.
      */
     abstract val orderClass: OrderClass
+}
 
 
+class TradingOrdersBuilder {
+    private var orders = mutableListOf<TradingOrder>()
+
+    fun option(lambda: OptionOrder.Builder.() -> Unit) {
+        orders.add(OptionOrder.Builder().apply(lambda).build())
+    }
+
+    fun equity(lambda: EquityOrder.Builder.() -> Unit) {
+        orders.add(EquityOrder.Builder().apply(lambda).build())
+    }
+
+    fun build(): List<TradingOrder> {
+        return orders.toList()
+    }
+}
+
+class TradingOrderBuilder {
+    private var order: TradingOrder? = null
+
+    fun option(lambda: OptionOrder.Builder.() -> Unit) {
+        order = OptionOrder.Builder().apply(lambda).build()
+    }
+
+    fun equity(lambda: EquityOrder.Builder.() -> Unit) {
+        order = EquityOrder.Builder().apply(lambda).build()
+    }
+
+    fun build(): TradingOrder {
+        return order ?: throw IllegalStateException("Attempt to call build without ever initialializing a trading order.")
+    }
 }
 
 

@@ -29,13 +29,14 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 @ExperimentalCoroutinesApi
-class TestOtocoOrder : TradierAPITest()  {
+class TestOtocoOrder : TradierAPITest() {
 
     // Create an equity order and an option order
     @Test
     fun `test otoco order`() = runTest {
         launch(Dispatchers.Main) {
-            val otocoOrder = otoco {
+
+            tradier.trading.otocoOrder(accountId = TEST_TOKEN) {
                 symbol = "SPY"
                 duration = OrderDuration.GTC
                 order {
@@ -52,41 +53,63 @@ class TestOtocoOrder : TradierAPITest()  {
                         }
                     }
                 }
-                order {
-                    equity {
+                oco {
+                    option {
                         symbol = "SPY"
                         type = OrderType.MARKET
-                        duration =  OrderDuration.GTC
-                        side = EquityOrder.Side.BUY
-                        quantity = 50
+                        orderDuration = OrderDuration.GTC
+                        legs {
+                            leg {
+                                side = OptionOrder.Side.BUY_TO_OPEN
+                                quantity = 1
+                                optionSymbol = "SPY140118C00195000"
+                            }
+                        }
+                    }
+                    option {
+                        symbol = "SPY"
+                        type = OrderType.MARKET
+                        orderDuration = OrderDuration.GTC
+                        legs {
+                            leg {
+                                side = OptionOrder.Side.BUY_TO_OPEN
+                                quantity = 3
+                                optionSymbol = "SPY140118C00195000"
+                            }
+                        }
                     }
                 }
             }
-
-            tradier.trading.ocoOrder(accountId = TEST_TOKEN, otocoOrder)
             val request = mockEngine.requestHistory.first()
 
             val formDataContent = request.body as FormDataContent
 
-            assert(formDataContent.formData["class"] == "oco")
+            assertEquals("otoco", formDataContent.formData["class"], )
             assertEquals("gtc", formDataContent.formData["duration"])
 
             // Check option order
-            assert(formDataContent.formData["option_symbol[0]"] ==  "SPY140118C00195000")
-            assert(formDataContent.formData["side[0]"] ==  "${OptionOrder.Side.BUY_TO_OPEN}")
-            assert(formDataContent.formData["quantity[0]"] ==  "1")
+            assertEquals("SPY140118C00195000", formDataContent.formData["option_symbol[0]"], )
+            assertEquals("${OptionOrder.Side.BUY_TO_OPEN}", formDataContent.formData["side[0]"] )
+            assertEquals("1", formDataContent.formData["quantity[0]"], )
             assertEquals("gtc", formDataContent.formData["duration[0]"])
 
             // Check triggers order
-            assert(formDataContent.formData["symbol[1]"] ==  "SPY")
-            assert(formDataContent.formData["type[1]"] ==  "${OrderType.MARKET}")
+            assertEquals( "SPY", formDataContent.formData["symbol[1]"])
+            assertEquals("${OrderType.MARKET}", formDataContent.formData["type[1]"], )
             assertEquals("gtc", formDataContent.formData["duration[1]"])
-            assertEquals("${EquityOrder.Side.BUY}", formDataContent.formData["side[1]"],  )
-            assert(formDataContent.formData["quantity[1]"] ==  "50")
+            assertEquals("${OptionOrder.Side.BUY_TO_OPEN}", formDataContent.formData["side[1]"])
+            assertEquals("1",formDataContent.formData["quantity[1]"])
+
+            // Check triggers order
+            assertEquals("SPY", formDataContent.formData["symbol[2]"])
+            assertEquals("${OrderType.MARKET}", formDataContent.formData["type[2]"])
+            assertEquals("gtc", formDataContent.formData["duration[1]"])
+            assertEquals("${OptionOrder.Side.BUY_TO_OPEN}", formDataContent.formData["side[2]"])
+            assertEquals("3", formDataContent.formData["quantity[2]"])
 
 
             println(mockEngine.requestHistory.first())
-            assert(request.url.toString() == "$TEST_URI/accounts/$TEST_TOKEN/orders")
+            assertEquals("$TEST_URI/accounts/$TEST_TOKEN/orders", request.url.toString())
         }
     }
 

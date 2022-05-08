@@ -175,6 +175,10 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
         }).body()
     }
 
+    /**
+     * Place an order to trade an equity security.
+     * @see equityOrder
+     */
     suspend fun equityOrder(accountId: String, block: EquityOrder.Builder.() -> Unit): OrderResponse =
         equityOrder(accountId, EquityOrder.Builder().apply(block).build())
 
@@ -190,6 +194,12 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
             optionOrder.formParams(this)
         }).body()
     }
+
+    /**
+     * @see optionOrder
+     */
+    suspend fun optionOrder(accountId: String, block: OptionOrder.Builder.() -> Unit): OrderResponse =
+        optionOrder(accountId, OptionOrder.Builder().apply(block).build())
 
 
     /**
@@ -209,7 +219,11 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
         }).body()
     }
 
-
+    /**
+     * @see multiLegOrder
+     */
+    suspend fun multiLegOrder(accountId: String, block: OptionOrder.Builder.() -> Unit): OrderResponse =
+        multiLegOrder(accountId, OptionOrder.Builder().apply(block).build())
 
     /**
      * Place a combo order. This is a specialized type of order consisting of one equity leg and one option leg. It can
@@ -229,6 +243,11 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
         }).body()
     }
 
+    /**
+     * @see comboOrder
+     */
+    suspend fun comboOrder(accountId: String, block: ComboOrder.Builder.() -> Unit): OrderResponse =
+        comboOrder(accountId, ComboOrder.Builder().apply(block).build())
 
     /**
      * Place a one-triggers-other order. This order type is composed of two separate orders sent simultaneously.
@@ -256,6 +275,12 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
 
         }).body()
     }
+
+    /**
+     * @see otoOrder
+     */
+    suspend fun otoOrder(accountId: String, block: OtoOrder.Builder.() -> Unit): OrderResponse =
+        otoOrder(accountId, OtoOrder.Builder().apply(block).build())
 
     /**
      * Place a one-cancels-other order. This order type is composed of two separate orders sent simultaneously.
@@ -291,6 +316,11 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
         }).body()
     }
 
+    /**
+     * @see ocoOrder
+     */
+    suspend fun ocoOrder(accountId: String, block: OcoOrder.Builder.() -> Unit) = ocoOrder(accountId, OcoOrder.Builder().apply(block).build().validate())
+
 
     /**
      * Place a one-triggers-one-cancels-other order. This order type is composed of three separate orders sent
@@ -304,12 +334,15 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
      * </pre>
      * POST: /v1/accounts/{account_id}/orders
      */
-    suspend fun otcoOrder(accountId: String, order: OtocoOrder): OrderResponse {
+    suspend fun otocoOrder(accountId: String, order: OtocoOrder): OrderResponse {
         return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
             append("class", "${order.orderClass}")
             append("duration", order.duration.toString())
 
-            listOf(order.order, order.oco.orders).forEachIndexed {idx, order ->
+            buildList {
+                add(order.order)
+                addAll(order.oco)
+            }.forEachIndexed {idx, order ->
                 when(order) {
                     is OptionOrder -> {
                         check(order.legs.size == 1) {"In an OTO order there can be only one leg for options"}
@@ -327,11 +360,9 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
     }
 
     /**
-     * Place a one-triggers-one-cancels-other order. This order type is composed of three separate orders sent
-     * simultaneously. The property keys of each order are indexed.
-     * Builder version of otocoOrder(accountId: String, order OtocoOrder)
+     * @see otocoOrder
      */
-    suspend fun otcoOrder(accountId: String, block: OtocoOrder.Builder.() -> Unit) = otcoOrder(accountId, OtocoOrder.Builder().apply(block).build().validate())
+    suspend fun otocoOrder(accountId: String, block: OtocoOrder.Builder.() -> Unit) = otocoOrder(accountId, OtocoOrder.Builder().apply(block).build().validate())
 
     /**
      * Helper to convert an option order to form parameters.

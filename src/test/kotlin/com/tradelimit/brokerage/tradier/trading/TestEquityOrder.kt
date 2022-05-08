@@ -34,6 +34,7 @@ internal class TestEquityOrder : TradierAPITest() {
     @Test
     fun `test open equity position`() = runTest {
         launch(Dispatchers.Main) {
+
             val trade = tradier.trading.equityOrder(accountId = TEST_TOKEN) {
                 accountId = TEST_TOKEN
                 symbol = "AMD"
