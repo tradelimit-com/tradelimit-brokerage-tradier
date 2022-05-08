@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 tradelimit.com
+ * © 2022 Chris Hinshaw <chris.hinshaw@tradelimit.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ internal class TestEquityOrder : TradierAPITest() {
     @Test
     fun `test open equity position`() = runTest {
         launch(Dispatchers.Main) {
-            val order = equityOrder {
+            val trade = tradier.trading.equityOrder(accountId = TEST_TOKEN) {
                 accountId = TEST_TOKEN
                 symbol = "AMD"
                 price = 1.0
@@ -44,7 +44,6 @@ internal class TestEquityOrder : TradierAPITest() {
                 duration = OrderDuration.DAY
             }
 
-            val trade = tradier.trading.equityOrder(accountId = TEST_TOKEN, order)
             val request = mockEngine.requestHistory.first()
 
             val formDataContent = request.body as FormDataContent
@@ -63,4 +62,6 @@ internal class TestEquityOrder : TradierAPITest() {
             assert(trade.order.status == "OK")
         }
     }
+
+
 }

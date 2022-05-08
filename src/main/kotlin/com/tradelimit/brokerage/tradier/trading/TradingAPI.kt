@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 tradelimit.com
+ * © 2022 Chris Hinshaw <chris.hinshaw@tradelimit.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -175,6 +175,9 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
         }).body()
     }
 
+    suspend fun equityOrder(accountId: String, block: EquityOrder.Builder.() -> Unit): OrderResponse =
+        equityOrder(accountId, EquityOrder.Builder().apply(block).build())
+
 
     /**
      * Place an order to trade a single option.
@@ -234,7 +237,7 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
     suspend fun otoOrder(accountId: String, order: OtoOrder): OrderResponse {
 
         return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
-            append("class", "${OrderClass.OTO}")
+            append("class", "${order.orderClass}")
             append("duration", order.duration.toString())
 
             listOf(order.order, order.triggers).forEachIndexed {idx, order ->
@@ -265,8 +268,27 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
      *      If sending duration per leg, both orders must have the same duration.
      * </pre>
      */
-    suspend fun ocoOrder(optionOrder: OptionOrder): OrderResponse {
-        throw NotImplementedError("Missing implementation")
+    suspend fun ocoOrder(accountId: String, order: OcoOrder): OrderResponse {
+
+        return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
+            append("class", "${order.orderClass}")
+            append("duration", order.duration.toString())
+
+            order.orders.forEachIndexed {idx, order ->
+                when(order) {
+                    is OptionOrder -> {
+                        check(order.legs.size == 1) {"In an OTO order there can be only one leg for options"}
+                        order.formParams(this, idx)
+                    }
+
+                    is EquityOrder -> {
+                        order.formParams(this, idx)
+                    }
+                    else -> throw IllegalStateException("Received unknown oto order type ${order!!::class}")
+                }
+            }
+
+        }).body()
     }
 
 
@@ -282,14 +304,37 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
      * </pre>
      * POST: /v1/accounts/{account_id}/orders
      */
-    suspend fun otcoOrder(optionOrder: OptionOrder): OrderResponse {
-        throw NotImplementedError("Missing implementation")
+    suspend fun otcoOrder(accountId: String, order: OtocoOrder): OrderResponse {
+        return httpClient.submitForm("${apiUrl}/accounts/$accountId/orders", formParameters = Parameters.build {
+            append("class", "${order.orderClass}")
+            append("duration", order.duration.toString())
+
+            listOf(order.order, order.oco.orders).forEachIndexed {idx, order ->
+                when(order) {
+                    is OptionOrder -> {
+                        check(order.legs.size == 1) {"In an OTO order there can be only one leg for options"}
+                        order.formParams(this, idx)
+                    }
+
+                    is EquityOrder -> {
+                        order.formParams(this, idx)
+                    }
+                    else -> throw IllegalStateException("Received unknown oto order type ${order!!::class}")
+                }
+            }
+
+        }).body()
     }
 
-
+    /**
+     * Place a one-triggers-one-cancels-other order. This order type is composed of three separate orders sent
+     * simultaneously. The property keys of each order are indexed.
+     * Builder version of otocoOrder(accountId: String, order OtocoOrder)
+     */
+    suspend fun otcoOrder(accountId: String, block: OtocoOrder.Builder.() -> Unit) = otcoOrder(accountId, OtocoOrder.Builder().apply(block).build().validate())
 
     /**
-     * Helper to converf
+     * Helper to convert an option order to form parameters.
      */
     private fun OptionOrder.formParams(pb: ParametersBuilder, idx: Int? = null ) {
         val leg = legs.single()
@@ -320,12 +365,10 @@ class TradingAPI(var apiUrl: String, private val httpClient: HttpClient) {
         }
     }
 
-
     /**
      * Helper function for formatting tag names if index is supplied or not.
      */
     private fun tagName(s: String, idx: Int? = null) = idx?.let {"$s[$idx]"} ?: s
-
 
     /**
      * This function will simply append the option legs to the form builder.

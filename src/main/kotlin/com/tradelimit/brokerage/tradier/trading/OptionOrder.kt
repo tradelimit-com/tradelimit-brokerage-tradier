@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 tradelimit.com
+ * © 2022 Chris Hinshaw <chris.hinshaw@tradelimit.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ data class OptionOrder(
     /**
      * Time the order will remain active. One of: day, gtc, pre, post
      */
-    @SerialName("duration")  override val duration: OrderDuration,
+    @SerialName("duration") override val duration: OrderDuration,
     /**
      * Limit price. Required only for limit and stop_limit orders.
      */

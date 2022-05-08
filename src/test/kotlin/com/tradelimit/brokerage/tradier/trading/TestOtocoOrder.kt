@@ -19,28 +19,30 @@ package com.tradelimit.brokerage.tradier.trading
 import com.tradelimit.brokerage.tradier.TEST_TOKEN
 import com.tradelimit.brokerage.tradier.TEST_URI
 import com.tradelimit.brokerage.tradier.TradierAPITest
+import com.tradelimit.brokerage.tradier.trading.OcoOrder.Companion.ocoOrder
 import io.ktor.client.request.forms.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 @ExperimentalCoroutinesApi
-class TestOtoOrder : TradierAPITest()  {
+class TestOtocoOrder : TradierAPITest()  {
 
     // Create an equity order and an option order
     @Test
-    fun `test oto order`() = runTest {
+    fun `test otoco order`() = runTest {
         launch(Dispatchers.Main) {
-            val otoOrder = OtoOrder.otoOrder {
+            val otocoOrder = otoco {
                 symbol = "SPY"
-                duration = OrderDuration.DAY
+                duration = OrderDuration.GTC
                 order {
                     option {
                         symbol = "SPY"
                         type = OrderType.MARKET
-                        orderDuration = OrderDuration.DAY
+                        orderDuration = OrderDuration.GTC
                         legs {
                             leg {
                                 side = OptionOrder.Side.BUY_TO_OPEN
@@ -50,35 +52,36 @@ class TestOtoOrder : TradierAPITest()  {
                         }
                     }
                 }
-                triggers {
+                order {
                     equity {
                         symbol = "SPY"
                         type = OrderType.MARKET
-                        duration = OrderDuration.DAY
+                        duration =  OrderDuration.GTC
                         side = EquityOrder.Side.BUY
                         quantity = 50
                     }
                 }
             }
 
-            tradier.trading.otoOrder(accountId = TEST_TOKEN, otoOrder)
+            tradier.trading.ocoOrder(accountId = TEST_TOKEN, otocoOrder)
             val request = mockEngine.requestHistory.first()
 
             val formDataContent = request.body as FormDataContent
 
-            assert(formDataContent.formData["class"] == "oto")
-            assert(formDataContent.formData["duration"] ==  "day")
+            assert(formDataContent.formData["class"] == "oco")
+            assertEquals("gtc", formDataContent.formData["duration"])
 
             // Check option order
             assert(formDataContent.formData["option_symbol[0]"] ==  "SPY140118C00195000")
             assert(formDataContent.formData["side[0]"] ==  "${OptionOrder.Side.BUY_TO_OPEN}")
             assert(formDataContent.formData["quantity[0]"] ==  "1")
+            assertEquals("gtc", formDataContent.formData["duration[0]"])
 
             // Check triggers order
             assert(formDataContent.formData["symbol[1]"] ==  "SPY")
             assert(formDataContent.formData["type[1]"] ==  "${OrderType.MARKET}")
-            assert(formDataContent.formData["duration[1]"] ==  "${OrderDuration.DAY}")
-            assert(formDataContent.formData["side[1]"] ==  "${EquityOrder.Side.BUY}")
+            assertEquals("gtc", formDataContent.formData["duration[1]"])
+            assertEquals("${EquityOrder.Side.BUY}", formDataContent.formData["side[1]"],  )
             assert(formDataContent.formData["quantity[1]"] ==  "50")
 
 
